@@ -1,92 +1,45 @@
-% read the fixed image
-F = readim('fixed.png');
-F = im2mat(F,'double');
+img = zeros(256,256);
+img(25:50, 25:50) = 255;
+in1 = dipshow(img);
+in1.Name='orig';
 
-% read the moved image
-G = circshift(F,50,1);
-%G = readim('moving.png');
-%G = im2mat(G,'double');
+img2 = zeros(256,256);
+img2(30:55, 30:55) = 255;
+in2 = dipshow(img2);
+in2.Name='shift';
 
-% show difference
-figCorr=dipshow(G - F);
-figCorr.Name='difference';
-figCorr.NumberTitle='off';
+h = [0; 0];
 
-h_x = 0;
-h_y = 0;
+h = LucasKanade(img, img2, h, img2)
 
-[h_x, h_y] = LucasKanade(F, G, h_x, h_y);
+regist = imtranslate(img2,(h)');
+in3 = dipshow(regist);
+in3.Name='regist';
 
-F_derivative_x = dx(F);
-F_derivative_y = dy(F);
-
-F = F + h_x * F_derivative_x;
-F = F + h_y * F_derivative_y;
-
-% show corrected difference
-figCorr=dipshow(G - F);
-figCorr.Name='corrected difference';
-figCorr.NumberTitle='off';
-
-
-% show corrected F
-figCorr=dipshow(F);
-figCorr.Name='corrected F';
-figCorr.NumberTitle='off';
-
-function [h_x, h_y] = LucasKanade(F, G, h_x, h_y)
-
-    for a = 1:400
-        % show fixed image
-        %figF=dipshow(F);
-        %figF.Name='fixed image';
-        %figF.NumberTitle='off';
-
-        % show moving image
-        %figG=dipshow(G);
-        %figG.Name='moving image';
-        %figG.NumberTitle='off';
-
-        % show difference G - F
-        %figD=dipshow(G - F);
-        %figD.Name='difference image';
-        %figD.NumberTitle='off';
-
-        % Squared Difference
-        E = sum((G - F).^2);
-
-        % Gradient of F with respect to x
-        F_derivative_x = dx(F);
+function h = LucasKanade(img, img2, h, extra)
+    
+    for iter = 1:100
         
-        % Gradient of F with respect to y
-        F_derivative_y = dy(F);
-
-        % show derivative
-        %figFdx=dipshow(F_derivative_x);
-        %figFdx.Name='derivative image dx';
-        %figFdx.NumberTitle='off';
+        imgDx = dx(img2, 1);
+        imgDy = dy(img2, 1);
         
-        % show derivative
-        %figFdy=dipshow(F_derivative_y);
-        %figFdy.Name='derivative image dy';
-        %figFdy.NumberTitle='off';
+        J_prime_xx = imgDx.*imgDx;
+        J_prime_xy = imgDx.*imgDy; 
+        J_prime_yy = imgDy.*imgDy;
+
+        H = [sum(J_prime_xx) sum(J_prime_xy); sum(J_prime_xy) sum(J_prime_yy)];
         
-        new_hx = sum(transpose(F_derivative_x)* (G - F)) / sum(transpose(F_derivative_x) * F_derivative_x);
-        h_x = h_x + new_hx;        
+        img2 = imtranslate(img2,h');
+        diff = img - img2;
+                
+        if abs(sum(diff)) < 0.5
+            break
+        end
+        num = [-sum(imgDx * diff) -sum(imgDy * diff)];
 
-        new_hy = sum(transpose(F_derivative_y) * (G - F)) / sum(transpose(F_derivative_y) * F_derivative_y);
-        h_y = h_y + new_hy;
+        deltaH = num / H;
 
-        F = F + h_x * F_derivative_x;
-        F = F + h_y * F_derivative_y;
-
-        % show corrected F
-        %figCorr=dipshow(G - F);
-        %figCorr.Name='corrected difference';
-        %figCorr.NumberTitle='off';
-
-        %close all
+        h = h + transpose(deltaH);
     end
-    
-    
+    disp(iter)
 end
